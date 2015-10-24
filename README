@@ -1,0 +1,97 @@
+* Overview *
+
+Binary-level Software Fault Injector for x86 Linux kernel
+(based on RIO fault injector from the University of Michigan and
+Nooks fault injector from the University of Washington)
+
+This document is originally distributed on Nooks research web 
+site and modified by Takeshi Yoshimura in Feburary 2013. 
+For information of our extensions, see the paper "Is Linux
+Kernel Oops Useful or Not?", Proceedings of the 8th Workshop on Hot 
+Topics in System Dependability (HotDep '12) October 2012, by Takeshi 
+Yoshimura, Hiroshi Yamada and Kenji Kono.
+
+This tool can emulate many kinds of common programming errors. It does
+this by modifying instructions of a loaded module in ways that emulate
+common programming errors. The tool tells the kernel what module to
+modify, what kind of error to emulate, and a random seed for 
+generating the instructions to modify. 
+
+The kernel finds instances of particular instruction patterns, such as
+call instructions, that it modifes to simulate faults. For more
+information, see the paper "Systematic Improvement of Fault TOlerance
+in the Rio File Cache", Proceedings of the 1999 Symposium on
+Fault-Tolerant Computing (FTCS) June 1999, by Wee Teck Ng and Peter
+M. Chen. 
+
+We confirmed that the patch and tools worked on the x86 linux 2.6.32,
+ 3.0, 3.2, 3.4 and 3.7. You can use patch-linux-3.7 to even other 
+x86 linux 2.6.x and 3.x kernels if you set up the systemcall table 
+for sys_swifi, sys_swifi2 and sys_disasm by hand (See 
+arch/x86/include/asm/unistd_64.h etc.). Some of faults (HEAP, DATA, 
+BSS faults) are not implemented yet.
+
+
+* Installation *
+
+First, you need to patch your linux kernel and build it. 
+
+$tar vxzf tools.tar.gz
+$cp tools/patch-x.y <linux version x.y src dir>
+$cd <linux version x.y src dir>
+$patch -p1 < patch-x.y
+$make && make modules_install && make install
+
+Second, you need to build user support tools for fault injection.
+
+$cd <tools dir>
+$make
+
+
+
+* Usage *
+
+$./swifi <module name> <fault type> <random seed>
+
+This tool prints out the descriptions for the mutated instructions.
+For <module name>, you can use module names listed by lsmod.
+When you inject faults into the kernel itself, please specify "core"
+on <module name>. <fault type> is an integer number corresponding fault 
+type. For more information, please type "./swifi" and see its help.
+
+<fault type> includes TEST_TEXT, TEST_BRANCH, etc. They are used for 
+testing TEXT, BRANCH, etc. injections. They always do the psuedo-
+injection of the same fault for TEXT, BRANCH, etc. You can verify 
+a fault before injecting it by using corresponding TEST_* fault.
+
+Specified faults sometimes fail to be injected. In that case, the 
+tool does not print out any. Apparently, IRQ fault does not work in 
+3.x kernels. Please use NEWIRQ Instead of using IRQ fault on 3.x 
+kernels.
+
+I recommend you to use test_swifi before actual fault injection 
+in order to avoid injecting redundant or improper faults.
+
+
+* Fault Verification *
+
+$./test_swifi <module name> <fault type> <number of verifying faults>
+
+This tool injects specified number of pseudo faults (actually do not 
+inject any faults) and roughly checks if the pseudo-injected fault 
+is proper. By doing so, you can obtain roughly verified sets of the 
+fault type and the random seeds for actual fault injections. Besides, 
+you can avoid injecting redundantfaults. Note that the fault type 
+number for this test is different from ones for actual injections. 
+For example, 18 is for TEST_TEXT, not for TEXT. Please type "./swifi" 
+and see its help.
+
+$./ksym_disasm.pl <symbol name>
+
+This perl script disasembles the binary function of the running kernel 
+according to given symbol name. This tool enables you to manually check 
+if an injected fault is proper by specifying the function name displayed 
+on the fault injection result. This script requires that /proc/kallsyms 
+address lookup is permitted.
+
+
